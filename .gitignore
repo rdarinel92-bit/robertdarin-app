@@ -48,3 +48,5 @@ app.*.map.json
 /android/key.properties
 /android/keystores/*.jks
 /android/app/src/main/assets/firebase-service-account.json
+/android/app/google-services.json
+/ios/Runner/GoogleService-Info.plist

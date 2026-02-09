@@ -451,7 +451,7 @@ class _TarjetasServicioScreenState extends State<TarjetasServicioScreen> with Si
           // Divider
           Container(height: 1, color: Colors.white10),
           
-          // Acciones
+          // Acciones - Primera fila
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
@@ -459,19 +459,31 @@ class _TarjetasServicioScreenState extends State<TarjetasServicioScreen> with Si
                 _buildAccionBtn(Icons.visibility, 'Ver', () => _verTarjeta(tarjeta)),
                 _buildAccionBtn(Icons.edit, 'Editar', () => _editarTarjeta(tarjeta)),
                 _buildAccionBtn(Icons.qr_code_2, 'QR', () => _mostrarQR(tarjeta)),
-                _buildAccionBtn(Icons.tune, 'Formulario', () => _configurarFormulario(tarjeta)),
-                _buildAccionBtn(
-                  Icons.delete_outline,
-                  'Eliminar',
-                  () => _eliminarTarjeta(tarjeta),
-                  color: Colors.redAccent,
-                ),
+                _buildAccionBtn(Icons.share, 'Compartir', () => _compartirTarjeta(tarjeta), color: const Color(0xFF25D366)),
+                _buildAccionBtn(Icons.copy, 'Duplicar', () => _duplicarTarjeta(tarjeta), color: const Color(0xFF8B5CF6)),
+              ],
+            ),
+          ),
+          // Acciones - Segunda fila
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              children: [
+                _buildAccionBtn(Icons.bar_chart, 'Stats', () => _verEstadisticas(tarjeta), color: const Color(0xFF00D9FF)),
+                _buildAccionBtn(Icons.tune, 'Form', () => _configurarFormulario(tarjeta)),
                 _buildAccionBtn(
                   activa ? Icons.pause : Icons.play_arrow,
                   activa ? 'Pausar' : 'Activar',
                   () => _toggleEstado(tarjeta),
                   color: activa ? Colors.orange : Colors.green,
                 ),
+                _buildAccionBtn(
+                  Icons.delete_outline,
+                  'Eliminar',
+                  () => _eliminarTarjeta(tarjeta),
+                  color: Colors.redAccent,
+                ),
+                const Expanded(child: SizedBox()), // Spacer
               ],
             ),
           ),
@@ -950,20 +962,6 @@ class _TarjetasServicioScreenState extends State<TarjetasServicioScreen> with Si
     }
   }
 
-  Future<void> _compartirTarjeta(Map<String, dynamic> tarjeta) async {
-    final nombre = tarjeta['nombre_tarjeta'] ?? 'Mi Tarjeta';
-    final codigo = tarjeta['codigo'] ?? '';
-    final link = resolveTarjetaQrLink(tarjeta) ?? '';
-    
-    await Share.share(
-      '🎴 $nombre\n\n'
-      '📱 Escanea el código QR o usa este enlace:\n'
-      '$link\n\n'
-      '🔑 Código: $codigo',
-      subject: nombre,
-    );
-  }
-
   Future<void> _toggleEstado(Map<String, dynamic> tarjeta) async {
     final nuevoEstado = !(tarjeta['activa'] ?? true);
     
@@ -989,6 +987,272 @@ class _TarjetasServicioScreenState extends State<TarjetasServicioScreen> with Si
           SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  // V10.64: Compartir tarjeta por WhatsApp
+  void _compartirTarjeta(Map<String, dynamic> tarjeta) {
+    final qrLink = resolveTarjetaQrLink(tarjeta);
+    final nombre = tarjeta['nombre_tarjeta'] ?? 'Mi Tarjeta';
+    final negocio = tarjeta['nombre_negocio'] ?? '';
+    final telefono = tarjeta['telefono_principal'] ?? '';
+    
+    final mensaje = '''
+🎴 *$nombre*
+${negocio.isNotEmpty ? '🏢 $negocio' : ''}
+${telefono.isNotEmpty ? '📞 $telefono' : ''}
+
+📲 Escanea el QR o visita:
+$qrLink
+
+_Tarjeta digital creada con Robert Darin_
+''';
+    
+    // Usar Share para compartir
+    Share.share(mensaje.trim(), subject: nombre);
+  }
+
+  // V10.64: Duplicar tarjeta existente
+  Future<void> _duplicarTarjeta(Map<String, dynamic> tarjeta) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('📋 Duplicar Tarjeta', style: TextStyle(color: Colors.white)),
+        content: Text(
+          '¿Crear una copia de "${tarjeta['nombre_tarjeta']}"?\n\nLa nueva tarjeta tendrá un código QR diferente.',
+          style: TextStyle(color: Colors.white.withOpacity(0.8)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8B5CF6)),
+            child: const Text('Duplicar'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmar != true) return;
+    
+    try {
+      final user = AppSupabase.client.auth.currentUser;
+      if (user == null) throw Exception('No autenticado');
+      
+      // Crear copia sin id ni codigo (se generarán automáticamente)
+      final nuevaTarjeta = Map<String, dynamic>.from(tarjeta);
+      nuevaTarjeta.remove('id');
+      nuevaTarjeta.remove('codigo');
+      nuevaTarjeta.remove('created_at');
+      nuevaTarjeta.remove('updated_at');
+      nuevaTarjeta.remove('escaneos_total');
+      nuevaTarjeta.remove('ultimo_escaneo');
+      nuevaTarjeta.remove('qr_web_fallback');
+      nuevaTarjeta.remove('qr_deep_link');
+      nuevaTarjeta['nombre_tarjeta'] = '${tarjeta['nombre_tarjeta']} (copia)';
+      nuevaTarjeta['created_by'] = user.id;
+      nuevaTarjeta['parent_id'] = tarjeta['id']; // Referencia al original
+      
+      await AppSupabase.client.from('tarjetas_servicio').insert(nuevaTarjeta);
+      
+      await _cargarDatos();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Tarjeta duplicada exitosamente'),
+            backgroundColor: Color(0xFF8B5CF6),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // V10.64: Ver estadísticas de la tarjeta
+  void _verEstadisticas(Map<String, dynamic> tarjeta) {
+    final tarjetaId = tarjeta['id'];
+    final nombre = tarjeta['nombre_tarjeta'] ?? 'Tarjeta';
+    final escaneos = tarjeta['escaneos_total'] ?? 0;
+    final ultimoEscaneo = tarjeta['ultimo_escaneo'];
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF00D9FF), Color(0xFF8B5CF6)]),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.bar_chart, color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(nombre, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                        Text('Estadísticas de rendimiento', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Stats Cards
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    // Card principal de escaneos
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [const Color(0xFF00D9FF).withOpacity(0.2), const Color(0xFF8B5CF6).withOpacity(0.2)],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFF00D9FF).withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            '$escaneos',
+                            style: const TextStyle(
+                              color: Color(0xFF00D9FF),
+                              fontSize: 56,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Text('Escaneos Totales', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                          if (ultimoEscaneo != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              'Último: ${_formatearFecha(ultimoEscaneo)}',
+                              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Stats secundarias
+                    Row(
+                      children: [
+                        _buildStatMiniCard('📱', 'Android', '--', const Color(0xFF10B981)),
+                        const SizedBox(width: 12),
+                        _buildStatMiniCard('🍎', 'iOS', '--', const Color(0xFF8B5CF6)),
+                        const SizedBox(width: 12),
+                        _buildStatMiniCard('🌐', 'Web', '--', const Color(0xFFFBBF24)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        _buildStatMiniCard('📞', 'Llamadas', '--', const Color(0xFF3B82F6)),
+                        const SizedBox(width: 12),
+                        _buildStatMiniCard('💬', 'WhatsApp', '--', const Color(0xFF25D366)),
+                        const SizedBox(width: 12),
+                        _buildStatMiniCard('📧', 'Email', '--', const Color(0xFFEF4444)),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    // Nota de próximamente
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.white.withOpacity(0.5), size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'El tracking detallado por dispositivo y acciones estará disponible próximamente.',
+                              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatMiniCard(String emoji, String label, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 20)),
+            const SizedBox(height: 6),
+            Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(label, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatearFecha(dynamic fecha) {
+    if (fecha == null) return '--';
+    try {
+      final dt = DateTime.parse(fecha.toString());
+      return DateFormat('dd/MM/yyyy HH:mm').format(dt);
+    } catch (e) {
+      return '--';
     }
   }
 
@@ -1136,6 +1400,60 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
   String _promocionTexto = '';
   int? _promocionDescuento;
   bool _permiteAgendar = false;
+  
+  // V10.64: Mejoras avanzadas del editor
+  String _font = 'poppins';
+  String _gradientType = 'none';
+  String _backgroundTexture = 'none';
+  String _textEffect = 'none';
+  String _layout = 'horizontal';
+  String? _logoUrl;
+  DateTime? _promocionFechaInicio;
+  DateTime? _promocionFechaFin;
+  
+  // Opciones disponibles
+  static const List<Map<String, dynamic>> _fonts = [
+    {'id': 'poppins', 'nombre': 'Poppins', 'preview': 'Aa'},
+    {'id': 'roboto', 'nombre': 'Roboto', 'preview': 'Aa'},
+    {'id': 'montserrat', 'nombre': 'Montserrat', 'preview': 'Aa'},
+    {'id': 'playfair', 'nombre': 'Playfair', 'preview': 'Aa'},
+    {'id': 'opensans', 'nombre': 'Open Sans', 'preview': 'Aa'},
+  ];
+  
+  static const List<Map<String, dynamic>> _gradients = [
+    {'id': 'none', 'nombre': 'Sin gradiente', 'colors': [0xFF1A1A2E, 0xFF1A1A2E]},
+    {'id': 'linear', 'nombre': 'Lineal', 'colors': [0xFF667eea, 0xFF764ba2]},
+    {'id': 'sunset', 'nombre': 'Atardecer', 'colors': [0xFFff7e5f, 0xFFfeb47b]},
+    {'id': 'ocean', 'nombre': 'Océano', 'colors': [0xFF2E3192, 0xFF1BFFFF]},
+    {'id': 'forest', 'nombre': 'Bosque', 'colors': [0xFF11998e, 0xFF38ef7d]},
+    {'id': 'diagonal', 'nombre': 'Diagonal', 'colors': [0xFF8E2DE2, 0xFF4A00E0]},
+  ];
+  
+  static const List<Map<String, dynamic>> _textures = [
+    {'id': 'none', 'nombre': 'Sin textura', 'icon': Icons.block},
+    {'id': 'marble', 'nombre': 'Mármol', 'icon': Icons.texture},
+    {'id': 'wood', 'nombre': 'Madera', 'icon': Icons.park},
+    {'id': 'metal', 'nombre': 'Metal', 'icon': Icons.hardware},
+    {'id': 'leather', 'nombre': 'Cuero', 'icon': Icons.chair},
+    {'id': 'carbon', 'nombre': 'Carbono', 'icon': Icons.grid_4x4},
+  ];
+  
+  static const List<Map<String, dynamic>> _textEffects = [
+    {'id': 'none', 'nombre': 'Normal', 'icon': Icons.text_fields},
+    {'id': 'shadow', 'nombre': 'Sombra', 'icon': Icons.blur_on},
+    {'id': 'glow', 'nombre': 'Brillo', 'icon': Icons.flare},
+    {'id': 'outline', 'nombre': 'Contorno', 'icon': Icons.format_shapes},
+    {'id': 'gold', 'nombre': 'Dorado', 'icon': Icons.auto_awesome},
+  ];
+  
+  static const List<Map<String, dynamic>> _layouts = [
+    {'id': 'horizontal', 'nombre': 'Horizontal', 'icon': Icons.crop_landscape},
+    {'id': 'vertical', 'nombre': 'Vertical', 'icon': Icons.crop_portrait},
+    {'id': 'centered', 'nombre': 'Centrado', 'icon': Icons.center_focus_strong},
+    {'id': 'split', 'nombre': 'Dividido', 'icon': Icons.vertical_split},
+    {'id': 'minimal', 'nombre': 'Minimal', 'icon': Icons.minimize},
+    {'id': 'bold', 'nombre': 'Bold', 'icon': Icons.format_bold},
+  ];
 
   late final List<String> _modulos;
   static const List<String> _fallbackTemplates = [
@@ -1145,6 +1463,15 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
     'clasico',
     'premium',
     'corporativo',
+    // V10.64: Nuevas plantillas
+    'elegante',
+    'creativo',
+    'tech',
+    'nature',
+    'luxury',
+    'retro',
+    'neon',
+    'gradient',
   ];
   final List<Map<String, dynamic>> _colores = [
     {'nombre': 'Cyan', 'color': '#00D9FF'},
@@ -1274,6 +1601,20 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
     _promocionTexto = t['promocion_texto'] ?? '';
     _promocionDescuento = t['promocion_descuento'] != null ? int.tryParse(t['promocion_descuento'].toString()) : null;
     _permiteAgendar = t['permite_agendar'] ?? false;
+    
+    // V10.64: Cargar campos de mejoras avanzadas
+    _font = t['font'] ?? 'poppins';
+    _gradientType = t['gradient_type'] ?? 'none';
+    _backgroundTexture = t['background_texture'] ?? 'none';
+    _textEffect = t['text_effect'] ?? 'none';
+    _layout = t['layout'] ?? 'horizontal';
+    _logoUrl = t['logo_url'];
+    if (t['promocion_fecha_inicio'] != null) {
+      _promocionFechaInicio = DateTime.tryParse(t['promocion_fecha_inicio'].toString());
+    }
+    if (t['promocion_fecha_fin'] != null) {
+      _promocionFechaFin = DateTime.tryParse(t['promocion_fecha_fin'].toString());
+    }
   }
 
   List<String> _resolverModulosPermitidos() {
@@ -2927,6 +3268,59 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // V10.64: Sección Logo del Negocio
+        _buildSectionHeader('Logo del Negocio', Icons.image, 'Imagen que aparecerá en tu tarjeta'),
+        const SizedBox(height: 16),
+        
+        GestureDetector(
+          onTap: _seleccionarLogo,
+          child: Container(
+            height: 120,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFF12121A),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _logoUrl != null ? const Color(0xFF10B981) : Colors.white.withOpacity(0.1),
+                width: _logoUrl != null ? 2 : 1,
+              ),
+            ),
+            child: _logoUrl != null && _logoUrl!.isNotEmpty
+                ? Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.network(
+                          _logoUrl!,
+                          width: double.infinity,
+                          height: 120,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => _buildLogoPlaceholder(),
+                        ),
+                      ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _logoUrl = null),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close, color: Colors.white, size: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : _buildLogoPlaceholder(),
+          ),
+        ),
+        
+        const SizedBox(height: 28),
+        
         // Sección Redes Sociales
         _buildSectionHeader('Redes Sociales', Icons.share, 'Enlaces a tus perfiles (opcional)'),
         const SizedBox(height: 16),
@@ -3091,6 +3485,79 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
       keyboardType: TextInputType.url,
       onChanged: onChanged,
     );
+  }
+  
+  // V10.64: Placeholder para logo
+  Widget _buildLogoPlaceholder() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.add_photo_alternate, color: Colors.white.withOpacity(0.3), size: 40),
+        const SizedBox(height: 8),
+        Text(
+          'Toca para agregar logo',
+          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
+        ),
+        Text(
+          'PNG, JPG (máx 2MB)',
+          style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 10),
+        ),
+      ],
+    );
+  }
+  
+  // V10.64: Seleccionar logo desde galería
+  Future<void> _seleccionarLogo() async {
+    // Por ahora solo permitir ingresar URL manualmente
+    final controller = TextEditingController(text: _logoUrl ?? '');
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('🖼️ Logo del Negocio', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Ingresa la URL de tu logo (puedes subirlo a Imgur, Google Drive, etc.)',
+              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'https://...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                filled: true,
+                fillColor: const Color(0xFF12121A),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(Icons.link, color: Colors.white54),
+              ),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result != null && result.isNotEmpty) {
+      setState(() => _logoUrl = result);
+    }
   }
   
   // Card con toggle switch
@@ -3313,8 +3780,281 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
             }).toList(),
           ),
         ),
+        
+        const SizedBox(height: 28),
+        
+        // ═══ V10.64: NUEVO - Selector de Fuentes ═══
+        const Text('🔤 Tipografía', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 54,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemCount: _fonts.length,
+            itemBuilder: (context, index) {
+              final font = _fonts[index];
+              final isSelected = font['id'] == _font;
+              return GestureDetector(
+                onTap: () => setState(() => _font = font['id']),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFF00D9FF).withOpacity(0.2) : const Color(0xFF12121A),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFF00D9FF) : Colors.white.withOpacity(0.1),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        font['preview'],
+                        style: TextStyle(
+                          color: isSelected ? const Color(0xFF00D9FF) : Colors.white70,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        font['nombre'],
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white54,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        
+        const SizedBox(height: 28),
+        
+        // ═══ V10.64: NUEVO - Selector de Gradientes ═══
+        const Text('🌈 Fondo Gradiente', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 60,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemCount: _gradients.length,
+            itemBuilder: (context, index) {
+              final grad = _gradients[index];
+              final isSelected = grad['id'] == _gradientType;
+              final colors = (grad['colors'] as List).map((c) => Color(c)).toList();
+              return GestureDetector(
+                onTap: () => setState(() => _gradientType = grad['id']),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 80,
+                  decoration: BoxDecoration(
+                    gradient: grad['id'] == 'none' 
+                        ? null 
+                        : LinearGradient(colors: colors),
+                    color: grad['id'] == 'none' ? const Color(0xFF12121A) : null,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? Colors.white : Colors.white.withOpacity(0.1),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (grad['id'] == 'none')
+                          Icon(Icons.block, color: Colors.white54, size: 20)
+                        else if (isSelected)
+                          const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                        const SizedBox(height: 4),
+                        Text(
+                          grad['nombre'],
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(isSelected ? 1 : 0.6),
+                            fontSize: 9,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        
+        const SizedBox(height: 28),
+        
+        // ═══ V10.64: NUEVO - Selector de Texturas ═══
+        const Text('🎭 Textura de Fondo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: _textures.map((tex) {
+            final isSelected = tex['id'] == _backgroundTexture;
+            return GestureDetector(
+              onTap: () => setState(() => _backgroundTexture = tex['id']),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 70,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF00D9FF).withOpacity(0.2) : const Color(0xFF12121A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF00D9FF) : Colors.white.withOpacity(0.1),
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      tex['icon'],
+                      color: isSelected ? const Color(0xFF00D9FF) : Colors.white54,
+                      size: 22,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      tex['nombre'],
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.white54,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        
+        const SizedBox(height: 28),
+        
+        // ═══ V10.64: NUEVO - Efectos de Texto ═══
+        const Text('✨ Efectos de Texto', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: _textEffects.map((eff) {
+            final isSelected = eff['id'] == _textEffect;
+            return GestureDetector(
+              onTap: () => setState(() => _textEffect = eff['id']),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 70,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF8B5CF6).withOpacity(0.2) : const Color(0xFF12121A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF8B5CF6) : Colors.white.withOpacity(0.1),
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      eff['icon'],
+                      color: isSelected ? const Color(0xFF8B5CF6) : Colors.white54,
+                      size: 22,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      eff['nombre'],
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.white54,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        
+        const SizedBox(height: 28),
+        
+        // ═══ V10.64: NUEVO - Layouts ═══
+        const Text('📐 Distribución', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: _layouts.map((lay) {
+            final isSelected = lay['id'] == _layout;
+            return GestureDetector(
+              onTap: () => setState(() => _layout = lay['id']),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 70,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF10B981).withOpacity(0.2) : const Color(0xFF12121A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF10B981) : Colors.white.withOpacity(0.1),
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      lay['icon'],
+                      color: isSelected ? const Color(0xFF10B981) : Colors.white54,
+                      size: 22,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      lay['nombre'],
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.white54,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       ],
     );
+  }
+  
+  // Icono para cada template - AMPLIADO con más opciones
+  IconData _getTemplateIcon(String template) {
+    switch (template.toLowerCase()) {
+      case 'profesional': return Icons.business_center;
+      case 'moderno': return Icons.auto_awesome;
+      case 'minimalista': return Icons.crop_square;
+      case 'clasico': return Icons.style;
+      case 'premium': return Icons.diamond;
+      case 'corporativo': return Icons.account_balance;
+      case 'elegante': return Icons.spa;
+      case 'creativo': return Icons.brush;
+      case 'tech': return Icons.computer;
+      case 'nature': return Icons.eco;
+      case 'luxury': return Icons.hotel_class;
+      case 'retro': return Icons.camera;
+      case 'neon': return Icons.lightbulb;
+      case 'gradient': return Icons.gradient;
+      default: return Icons.design_services;
+    }
   }
   
   // Selector de colores mejorado
@@ -3361,19 +4101,6 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
         );
       }).toList(),
     );
-  }
-  
-  // Icono para cada template
-  IconData _getTemplateIcon(String template) {
-    switch (template.toLowerCase()) {
-      case 'profesional': return Icons.business_center;
-      case 'moderno': return Icons.auto_awesome;
-      case 'minimalista': return Icons.crop_square;
-      case 'clasico': return Icons.style;
-      case 'premium': return Icons.diamond;
-      case 'corporativo': return Icons.account_balance;
-      default: return Icons.design_services;
-    }
   }
 
   // Step 5: Preview
@@ -3603,6 +4330,15 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
         'promocion_texto': _promocionTexto.isEmpty ? null : _promocionTexto,
         'promocion_descuento': _promocionDescuento,
         'permite_agendar': _permiteAgendar,
+        // V10.64: Campos de mejoras avanzadas
+        'font': _font,
+        'gradient_type': _gradientType,
+        'background_texture': _backgroundTexture,
+        'text_effect': _textEffect,
+        'layout': _layout,
+        'logo_url': _logoUrl,
+        'promocion_fecha_inicio': _promocionFechaInicio?.toIso8601String().split('T').first,
+        'promocion_fecha_fin': _promocionFechaFin?.toIso8601String().split('T').first,
       };
       final qrWebFallback = buildQrWebFallback(
         modulo: _modulo,

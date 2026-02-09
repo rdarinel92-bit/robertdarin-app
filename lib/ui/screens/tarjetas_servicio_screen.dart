@@ -1097,10 +1097,11 @@ class _CrearTarjetaServicioScreen extends StatefulWidget {
   State<_CrearTarjetaServicioScreen> createState() => _CrearTarjetaServicioScreenState();
 }
 
-class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen> {
+class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   int _currentStep = 0;
+  bool _showBackPreview = false; // Para flip de la preview
   
   // Datos del formulario
   String? _negocioId;
@@ -1319,60 +1320,496 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
   @override
   Widget build(BuildContext context) {
     final esEdicion = widget.tarjetaExistente != null;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWideScreen = screenWidth > 800; // Tablets y desktop
     
     return PremiumScaffold(
       title: esEdicion ? '✏️ Editar Tarjeta' : '➕ Nueva Tarjeta',
-      body: Form(
-        key: _formKey,
-        child: Stepper(
-          currentStep: _currentStep,
-          onStepContinue: _continuar,
-          onStepCancel: _retroceder,
-          controlsBuilder: (context, details) => _buildControls(details),
-          steps: [
-            Step(
-              title: const Text('Negocio y Módulo', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Selecciona el negocio y tipo de servicio', style: TextStyle(color: Colors.white54)),
-              isActive: _currentStep >= 0,
-              state: _currentStep > 0 ? StepState.complete : StepState.indexed,
-              content: _buildStepNegocio(),
+      body: isWideScreen 
+          ? _buildWideLayout(esEdicion) 
+          : _buildMobileLayout(esEdicion),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // LAYOUT PARA PANTALLAS ANCHAS (Tablets/Desktop) - Estilo Zazzle
+  // ═══════════════════════════════════════════════════════════════════════════════
+  Widget _buildWideLayout(bool esEdicion) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ═══ PANEL IZQUIERDO: Formulario ═══
+        Expanded(
+          flex: 45,
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A2E),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white10),
             ),
-            Step(
-              title: const Text('Información', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Datos de contacto', style: TextStyle(color: Colors.white54)),
-              isActive: _currentStep >= 1,
-              state: _currentStep > 1 ? StepState.complete : StepState.indexed,
-              content: _buildStepInfo(),
+            child: Column(
+              children: [
+                // Header del panel
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Colors.white10)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF00D9FF), Color(0xFF8B5CF6)],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.edit, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Personaliza tu diseño',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          Text(
+                            'Edita el texto y la información',
+                            style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Formulario scrollable
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Form(
+                      key: _formKey,
+                      child: _buildCompactForm(),
+                    ),
+                  ),
+                ),
+                // Botones de acción
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    border: Border(top: BorderSide(color: Colors.white10)),
+                  ),
+                  child: Row(
+                    children: [
+                      if (_currentStep > 0)
+                        TextButton.icon(
+                          onPressed: _retroceder,
+                          icon: const Icon(Icons.arrow_back, size: 18),
+                          label: const Text('Anterior'),
+                          style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                        ),
+                      const Spacer(),
+                      ElevatedButton.icon(
+                        onPressed: _isLoading ? null : (_currentStep < 5 ? _continuar : _guardarTarjeta),
+                        icon: _isLoading 
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : Icon(_currentStep < 5 ? Icons.arrow_forward : Icons.check, size: 18),
+                        label: Text(_currentStep < 5 ? 'Siguiente' : 'Guardar'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _currentStep < 5 ? const Color(0xFF00D9FF) : const Color(0xFF10B981),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            Step(
-              title: const Text('Servicios', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Qué servicios ofreces', style: TextStyle(color: Colors.white54)),
-              isActive: _currentStep >= 2,
-              state: _currentStep > 2 ? StepState.complete : StepState.indexed,
-              content: _buildStepServicios(),
+          ),
+        ),
+        // ═══ PANEL DERECHO: Preview en tiempo real ═══
+        Expanded(
+          flex: 55,
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // Preview principal con flip
+                Expanded(
+                  child: Center(
+                    child: _buildLivePreview(),
+                  ),
+                ),
+                // Miniaturas Anverso/Reverso
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildMiniThumbnail('Anverso', false),
+                    const SizedBox(width: 16),
+                    _buildMiniThumbnail('Reverso', true),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Indicador de paso actual
+                _buildStepIndicator(),
+              ],
             ),
-            Step(
-              title: const Text('Extras Web', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Redes sociales, ubicación y promociones', style: TextStyle(color: Colors.white54)),
-              isActive: _currentStep >= 3,
-              state: _currentStep > 3 ? StepState.complete : StepState.indexed,
-              content: _buildStepExtras(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // LAYOUT PARA MÓVILES - Con preview flotante
+  // ═══════════════════════════════════════════════════════════════════════════════
+  Widget _buildMobileLayout(bool esEdicion) {
+    return Stack(
+      children: [
+        // Contenido principal con Stepper
+        Form(
+          key: _formKey,
+          child: Stepper(
+            currentStep: _currentStep,
+            onStepContinue: _continuar,
+            onStepCancel: _retroceder,
+            controlsBuilder: (context, details) => _buildControls(details),
+            steps: [
+              Step(
+                title: const Text('Negocio y Módulo', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('Selecciona el negocio y tipo de servicio', style: TextStyle(color: Colors.white54)),
+                isActive: _currentStep >= 0,
+                state: _currentStep > 0 ? StepState.complete : StepState.indexed,
+                content: _buildStepNegocio(),
+              ),
+              Step(
+                title: const Text('Información', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('Datos de contacto', style: TextStyle(color: Colors.white54)),
+                isActive: _currentStep >= 1,
+                state: _currentStep > 1 ? StepState.complete : StepState.indexed,
+                content: _buildStepInfo(),
+              ),
+              Step(
+                title: const Text('Servicios', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('Qué servicios ofreces', style: TextStyle(color: Colors.white54)),
+                isActive: _currentStep >= 2,
+                state: _currentStep > 2 ? StepState.complete : StepState.indexed,
+                content: _buildStepServicios(),
+              ),
+              Step(
+                title: const Text('Extras Web', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('Redes sociales, ubicación y promociones', style: TextStyle(color: Colors.white54)),
+                isActive: _currentStep >= 3,
+                state: _currentStep > 3 ? StepState.complete : StepState.indexed,
+                content: _buildStepExtras(),
+              ),
+              Step(
+                title: const Text('Diseño', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('Colores y estilo', style: TextStyle(color: Colors.white54)),
+                isActive: _currentStep >= 4,
+                state: _currentStep > 4 ? StepState.complete : StepState.indexed,
+                content: _buildStepDiseno(),
+              ),
+              Step(
+                title: const Text('Vista Previa', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('Revisa y confirma', style: TextStyle(color: Colors.white54)),
+                isActive: _currentStep >= 5,
+                content: _buildStepPreview(),
+              ),
+            ],
+          ),
+        ),
+        // Mini preview flotante (solo en pasos 0-4)
+        if (_currentStep < 5)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: _buildFloatingMiniPreview(),
+          ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // PREVIEW EN TIEMPO REAL CON ANIMACIÓN 3D FLIP
+  // ═══════════════════════════════════════════════════════════════════════════════
+  Widget _buildLivePreview() {
+    final qrPreview = _buildQrPreviewData();
+    
+    return GestureDetector(
+      onTap: () => setState(() => _showBackPreview = !_showBackPreview),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: _showBackPreview ? 180 : 0),
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOutBack,
+        builder: (context, value, child) {
+          // Determinar si mostrar frente o reverso basado en la rotación
+          final showFront = value < 90;
+          final rotationAngle = showFront ? value : (180 - value);
+          
+          return Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001) // Perspectiva
+              ..rotateY(rotationAngle * 3.1416 / 180),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 450, maxHeight: 280),
+              child: AspectRatio(
+                aspectRatio: kTarjetaPrintAspectRatio,
+                child: showFront
+                    ? _TarjetaPreviewFrenteLive(
+                        nombreNegocio: _nombreNegocio,
+                        colorPrimario: _colorPrimario,
+                      )
+                    : Transform(
+                        alignment: Alignment.center,
+                        transform: Matrix4.identity()..rotateY(3.1416), // Voltear horizontalmente
+                        child: _TarjetaPreviewReversoLive(
+                          nombreNegocio: _nombreNegocio,
+                          slogan: _slogan,
+                          telefono: _telefonoPrincipal,
+                          email: _email,
+                          ciudad: _ciudad,
+                          qrData: qrPreview,
+                          colorPrimario: _colorPrimario,
+                        ),
+                      ),
+              ),
             ),
-            Step(
-              title: const Text('Diseño', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Colores y estilo', style: TextStyle(color: Colors.white54)),
-              isActive: _currentStep >= 4,
-              state: _currentStep > 4 ? StepState.complete : StepState.indexed,
-              content: _buildStepDiseno(),
+          );
+        },
+      ),
+    );
+  }
+
+  // Mini thumbnail para seleccionar cara
+  Widget _buildMiniThumbnail(String label, bool isBack) {
+    final isSelected = _showBackPreview == isBack;
+    
+    return GestureDetector(
+      onTap: () => setState(() => _showBackPreview = isBack),
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 50,
+            decoration: BoxDecoration(
+              color: isBack ? const Color(0xFF1A1A1A) : const Color(0xFFD4AF37),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isSelected ? const Color(0xFF00D9FF) : Colors.white24,
+                width: isSelected ? 2 : 1,
+              ),
+              boxShadow: isSelected ? [
+                BoxShadow(
+                  color: const Color(0xFF00D9FF).withOpacity(0.3),
+                  blurRadius: 8,
+                ),
+              ] : null,
             ),
-            Step(
-              title: const Text('Vista Previa', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Revisa y confirma', style: TextStyle(color: Colors.white54)),
-              isActive: _currentStep >= 5,
-              content: _buildStepPreview(),
+            child: Center(
+              child: isBack 
+                  ? const Icon(Icons.qr_code, color: Colors.white54, size: 24)
+                  : Text(
+                      _getIniciales(),
+                      style: TextStyle(
+                        color: const Color(0xFF1A1A1A).withOpacity(0.7),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.white54,
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Indicador de pasos (para wide layout)
+  Widget _buildStepIndicator() {
+    final steps = ['Negocio', 'Info', 'Servicios', 'Extras', 'Diseño', 'Preview'];
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(steps.length, (index) {
+          final isActive = index == _currentStep;
+          final isComplete = index < _currentStep;
+          
+          return Row(
+            children: [
+              GestureDetector(
+                onTap: () {
+                  if (index <= _currentStep || isComplete) {
+                    setState(() => _currentStep = index);
+                  }
+                },
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isActive 
+                        ? const Color(0xFF00D9FF)
+                        : isComplete 
+                            ? const Color(0xFF10B981)
+                            : Colors.white12,
+                  ),
+                  child: Center(
+                    child: isComplete 
+                        ? const Icon(Icons.check, size: 14, color: Colors.white)
+                        : Text(
+                            '${index + 1}',
+                            style: TextStyle(
+                              color: isActive ? Colors.white : Colors.white54,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+              if (index < steps.length - 1)
+                Container(
+                  width: 20,
+                  height: 2,
+                  color: isComplete ? const Color(0xFF10B981) : Colors.white12,
+                ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
+  // Preview flotante mini para móviles
+  Widget _buildFloatingMiniPreview() {
+    return GestureDetector(
+      onTap: () => setState(() => _showBackPreview = !_showBackPreview),
+      child: Container(
+        width: 100,
+        height: 60,
+        decoration: BoxDecoration(
+          color: _showBackPreview ? const Color(0xFF1A1A1A) : const Color(0xFFD4AF37),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF00D9FF), width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF00D9FF).withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
+        child: Center(
+          child: _showBackPreview 
+              ? const Icon(Icons.qr_code, color: Colors.white54, size: 28)
+              : Text(
+                  _getIniciales(),
+                  style: TextStyle(
+                    color: const Color(0xFF1A1A1A).withOpacity(0.7),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  String _getIniciales() {
+    final palabras = _nombreNegocio.trim().split(' ').where((p) => p.isNotEmpty).toList();
+    if (palabras.isEmpty) return 'RD';
+    if (palabras.length == 1) {
+      return palabras[0].length >= 2 
+          ? palabras[0].substring(0, 2).toUpperCase()
+          : palabras[0].toUpperCase();
+    }
+    return '${palabras[0][0]}${palabras[1][0]}'.toUpperCase();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // FORMULARIO COMPACTO PARA WIDE LAYOUT (todos los campos en secciones)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  Widget _buildCompactForm() {
+    switch (_currentStep) {
+      case 0:
+        return _buildStepNegocio();
+      case 1:
+        return _buildStepInfo();
+      case 2:
+        return _buildStepServicios();
+      case 3:
+        return _buildStepExtras();
+      case 4:
+        return _buildStepDiseno();
+      case 5:
+        return _buildCompactPreviewInfo();
+      default:
+        return const SizedBox();
+    }
+  }
+
+  Widget _buildCompactPreviewInfo() {
+    final qrPreview = _buildQrPreviewData();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('✅ Tu tarjeta está lista', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+        const SizedBox(height: 8),
+        Text('Revisa la preview a la derecha y presiona Guardar cuando estés listo.', style: TextStyle(color: Colors.white.withOpacity(0.7))),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('📋 Resumen:', style: TextStyle(color: Colors.white.withOpacity(0.9), fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              _buildResumenItem('Negocio', _nombreNegocio.isEmpty ? 'Sin nombre' : _nombreNegocio),
+              _buildResumenItem('Módulo', _modulo.toUpperCase()),
+              _buildResumenItem('Teléfono', _telefonoPrincipal.isEmpty ? 'Sin teléfono' : _telefonoPrincipal),
+              _buildResumenItem('Servicios', '${_servicios.length} servicios'),
+              if (_codigoTarjeta != null)
+                _buildResumenItem('Código QR', _codigoTarjeta!),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResumenItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Text('$label: ', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)),
+          Expanded(child: Text(value, style: const TextStyle(color: Colors.white, fontSize: 13))),
+        ],
       ),
     );
   }
@@ -3372,4 +3809,360 @@ class _IconoConfig {
   final double rotation;
 
   _IconoConfig(this.icon, this.x, this.y, this.size, this.rotation);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════
+// WIDGETS DE PREVIEW EN TIEMPO REAL - V10.61 Estilo Zazzle
+// ══════════════════════════════════════════════════════════════════════════════════
+
+/// Preview del FRENTE de la tarjeta (dorado metálico)
+class _TarjetaPreviewFrenteLive extends StatelessWidget {
+  final String nombreNegocio;
+  final String colorPrimario;
+
+  const _TarjetaPreviewFrenteLive({
+    required this.nombreNegocio,
+    required this.colorPrimario,
+  });
+
+  String get _iniciales {
+    final palabras = nombreNegocio.trim().split(' ').where((p) => p.isNotEmpty).toList();
+    if (palabras.isEmpty) return 'RD';
+    if (palabras.length == 1) {
+      return palabras[0].length >= 2 
+          ? palabras[0].substring(0, 2).toUpperCase()
+          : palabras[0].toUpperCase();
+    }
+    return '${palabras[0][0]}${palabras[1][0]}'.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFD4AF37),
+            Color(0xFFC9A227),
+            Color(0xFFCFB53B),
+            Color(0xFFB8860B),
+            Color(0xFFD4AF37),
+          ],
+          stops: [0.0, 0.25, 0.5, 0.75, 1.0],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFD4AF37).withOpacity(0.5),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Efecto brillo
+          Positioned(
+            top: -60,
+            left: -60,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.4),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Contenido
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Iniciales grandes con estilo firma
+                Text(
+                  _iniciales,
+                  style: TextStyle(
+                    fontSize: 90,
+                    fontWeight: FontWeight.w200,
+                    color: const Color(0xFF1A1A1A).withOpacity(0.85),
+                    letterSpacing: 12,
+                    fontFamily: 'serif',
+                    shadows: [
+                      Shadow(
+                        color: Colors.white.withOpacity(0.6),
+                        offset: const Offset(2, 2),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Líneas decorativas + nombre
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 1.5,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            const Color(0xFF1A1A1A).withOpacity(0.4),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      nombreNegocio.isEmpty 
+                          ? '• TU NEGOCIO •' 
+                          : '• ${nombreNegocio.toUpperCase()} •',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1A1A1A).withOpacity(0.8),
+                        letterSpacing: 3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(width: 16),
+                    Container(
+                      width: 50,
+                      height: 1.5,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF1A1A1A).withOpacity(0.4),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Tap hint
+          Positioned(
+            bottom: 12,
+            right: 16,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.rotate_right, size: 12, color: const Color(0xFF1A1A1A).withOpacity(0.5)),
+                const SizedBox(width: 4),
+                Text(
+                  'Toca para girar',
+                  style: TextStyle(fontSize: 10, color: const Color(0xFF1A1A1A).withOpacity(0.5)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Preview del REVERSO de la tarjeta (negro con QR)
+class _TarjetaPreviewReversoLive extends StatelessWidget {
+  final String nombreNegocio;
+  final String slogan;
+  final String telefono;
+  final String email;
+  final String ciudad;
+  final String? qrData;
+  final String colorPrimario;
+
+  const _TarjetaPreviewReversoLive({
+    required this.nombreNegocio,
+    required this.slogan,
+    required this.telefono,
+    required this.email,
+    required this.ciudad,
+    this.qrData,
+    required this.colorPrimario,
+  });
+
+  String get _iniciales {
+    final palabras = nombreNegocio.trim().split(' ').where((p) => p.isNotEmpty).toList();
+    if (palabras.isEmpty) return 'RD';
+    if (palabras.length == 1) {
+      return palabras[0].length >= 2 
+          ? palabras[0].substring(0, 2).toUpperCase()
+          : palabras[0].toUpperCase();
+    }
+    return '${palabras[0][0]}${palabras[1][0]}'.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.6),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Lado izquierdo: Info
+          Expanded(
+            flex: 55,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Logo mini
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFD4AF37), width: 2),
+                        ),
+                        child: Text(
+                          _iniciales,
+                          style: const TextStyle(
+                            color: Color(0xFFD4AF37),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              nombreNegocio.isEmpty ? 'TU NEGOCIO' : nombreNegocio.toUpperCase(),
+                              style: const TextStyle(
+                                color: Color(0xFFD4AF37),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                                letterSpacing: 1.5,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (slogan.isNotEmpty)
+                              Text(
+                                slogan,
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.5),
+                                  fontSize: 9,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  // Datos de contacto
+                  if (telefono.isNotEmpty)
+                    _buildContactRow(Icons.phone, telefono),
+                  if (email.isNotEmpty)
+                    _buildContactRow(Icons.email_outlined, email),
+                  if (ciudad.isNotEmpty)
+                    _buildContactRow(Icons.location_on_outlined, ciudad),
+                ],
+              ),
+            ),
+          ),
+          // Lado derecho: QR
+          Expanded(
+            flex: 45,
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: qrData != null && qrData!.isNotEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: QrImageView(
+                          data: qrData!,
+                          version: QrVersions.auto,
+                          padding: EdgeInsets.zero,
+                          backgroundColor: Colors.white,
+                          eyeStyle: const QrEyeStyle(
+                            eyeShape: QrEyeShape.square,
+                            color: Colors.black87,
+                          ),
+                          dataModuleStyle: const QrDataModuleStyle(
+                            dataModuleShape: QrDataModuleShape.square,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.qr_code_2, size: 50, color: Colors.grey[400]),
+                          const SizedBox(height: 4),
+                          Text(
+                            'QR',
+                            style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 12, color: const Color(0xFFD4AF37)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 10,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

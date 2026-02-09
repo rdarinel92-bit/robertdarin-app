@@ -1701,37 +1701,119 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
     );
   }
 
-  // Preview flotante mini para móviles
+  // Preview flotante mini para móviles - MEJORADO con animación y tooltip
   Widget _buildFloatingMiniPreview() {
     return GestureDetector(
       onTap: () => setState(() => _showBackPreview = !_showBackPreview),
-      child: Container(
-        width: 100,
-        height: 60,
-        decoration: BoxDecoration(
-          color: _showBackPreview ? const Color(0xFF1A1A1A) : const Color(0xFFD4AF37),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF00D9FF), width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF00D9FF).withOpacity(0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Center(
-          child: _showBackPreview 
-              ? const Icon(Icons.qr_code, color: Colors.white54, size: 28)
-              : Text(
-                  _getIniciales(),
-                  style: TextStyle(
-                    color: const Color(0xFF1A1A1A).withOpacity(0.7),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: _showBackPreview ? 180 : 0),
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutBack,
+        builder: (context, value, child) {
+          final showFront = value < 90;
+          return Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.002)
+              ..rotateY((showFront ? value : 180 - value) * 3.1416 / 180),
+            child: Container(
+              width: 120,
+              height: 75,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: showFront 
+                      ? [const Color(0xFFD4AF37), const Color(0xFFB8860B)]
+                      : [const Color(0xFF1A1A2E), const Color(0xFF0D0D14)],
                 ),
-        ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF00D9FF),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00D9FF).withOpacity(0.4),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  // Contenido principal
+                  Center(
+                    child: showFront 
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _getIniciales(),
+                                style: TextStyle(
+                                  color: const Color(0xFF1A1A1A).withOpacity(0.8),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 22,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Container(
+                                width: 30,
+                                height: 2,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1A1A1A).withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(1),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Transform(
+                            alignment: Alignment.center,
+                            transform: Matrix4.identity()..rotateY(3.1416),
+                            child: const Icon(Icons.qr_code_2, color: Colors.white60, size: 32),
+                          ),
+                  ),
+                  // Indicador "Toca para voltear"
+                  Positioned(
+                    bottom: 4,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.4),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.touch_app, size: 10, color: Colors.white.withOpacity(0.7)),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Voltear',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 8,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1943,66 +2025,85 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
     );
   }
 
-  // Step 2: Información de contacto
+  // Step 2: Información de contacto - MEJORADO con iconos
   Widget _buildStepInfo() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Header de sección
+        _buildSectionHeader('Datos del Negocio', Icons.store, 'Información que aparecerá en tu tarjeta'),
+        const SizedBox(height: 16),
+        
         TextFormField(
           initialValue: _nombreNegocio,
-          decoration: _inputDecoration('Nombre del Negocio'),
-          onChanged: (v) => _nombreNegocio = v,
+          decoration: _inputDecoration('Nombre del Negocio', icon: Icons.business),
+          style: const TextStyle(color: Colors.white, fontSize: 15),
+          onChanged: (v) => setState(() => _nombreNegocio = v),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         TextFormField(
           initialValue: _slogan,
-          decoration: _inputDecoration('Slogan (opcional)'),
+          decoration: _inputDecoration('Slogan (opcional)', icon: Icons.format_quote),
+          style: const TextStyle(color: Colors.white, fontSize: 15),
           onChanged: (v) => _slogan = v,
         ),
+        
+        const SizedBox(height: 20),
+        _buildSectionHeader('Contacto', Icons.contact_phone, 'Cómo pueden comunicarse contigo'),
         const SizedBox(height: 16),
+        
         Row(
           children: [
             Expanded(
               child: TextFormField(
                 initialValue: _telefonoPrincipal,
-                decoration: _inputDecoration('Teléfono Principal'),
+                decoration: _inputDecoration('Teléfono Principal', icon: Icons.phone),
+                style: const TextStyle(color: Colors.white, fontSize: 15),
                 keyboardType: TextInputType.phone,
                 onChanged: (v) => _telefonoPrincipal = v,
-                validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
+                validator: (v) => v?.isEmpty ?? true ? 'Requerido' : null,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: TextFormField(
                 initialValue: _whatsapp,
-                decoration: _inputDecoration('WhatsApp'),
+                decoration: _inputDecoration('WhatsApp', icon: Icons.chat),
+                style: const TextStyle(color: Colors.white, fontSize: 15),
                 keyboardType: TextInputType.phone,
                 onChanged: (v) => _whatsapp = v,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         TextFormField(
           initialValue: _email,
-          decoration: _inputDecoration('Correo Electrónico'),
+          decoration: _inputDecoration('Correo Electrónico', icon: Icons.email),
+          style: const TextStyle(color: Colors.white, fontSize: 15),
           keyboardType: TextInputType.emailAddress,
           onChanged: (v) => _email = v,
         ),
+        
+        const SizedBox(height: 20),
+        _buildSectionHeader('Ubicación', Icons.location_on, 'Dónde te pueden encontrar'),
         const SizedBox(height: 16),
+        
         TextFormField(
           initialValue: _direccion,
-          decoration: _inputDecoration('Dirección'),
+          decoration: _inputDecoration('Dirección completa', icon: Icons.place),
+          style: const TextStyle(color: Colors.white, fontSize: 15),
           maxLines: 2,
           onChanged: (v) => _direccion = v,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         Row(
           children: [
             Expanded(
               child: TextFormField(
                 initialValue: _ciudad,
-                decoration: _inputDecoration('Ciudad'),
+                decoration: _inputDecoration('Ciudad', icon: Icons.location_city),
+                style: const TextStyle(color: Colors.white, fontSize: 15),
                 onChanged: (v) => _ciudad = v,
               ),
             ),
@@ -2010,7 +2111,8 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
             Expanded(
               child: TextFormField(
                 initialValue: _horario,
-                decoration: _inputDecoration('Horario (Lun-Vie 9-6)'),
+                decoration: _inputDecoration('Horario', icon: Icons.schedule),
+                style: const TextStyle(color: Colors.white, fontSize: 15),
                 onChanged: (v) => _horario = v,
               ),
             ),
@@ -2019,60 +2121,133 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
       ],
     );
   }
+  
+  // Widget auxiliar para headers de sección
+  Widget _buildSectionHeader(String title, IconData icon, String subtitle) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [const Color(0xFF00D9FF).withOpacity(0.2), const Color(0xFF8B5CF6).withOpacity(0.2)],
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: const Color(0xFF00D9FF), size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+              Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
-  // Step 3: Servicios
+  // Step 3: Servicios - MEJORADO con animaciones
   Widget _buildStepServicios() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Lista de Servicios',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Agrega los servicios que ofreces. Aparecerán en tu tarjeta.',
-          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
-        ),
-        const SizedBox(height: 16),
+        _buildSectionHeader('Tus Servicios', Icons.auto_awesome, 'Lista lo que ofreces a tus clientes'),
+        const SizedBox(height: 20),
         
         // Input para agregar servicio
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [const Color(0xFF00D9FF).withOpacity(0.1), const Color(0xFF8B5CF6).withOpacity(0.1)],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF00D9FF).withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _servicioController,
+                      decoration: _inputDecoration('Escribe un servicio...', icon: Icons.add_box_outlined),
+                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                      onFieldSubmitted: (_) => _agregarServicio(),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF00D9FF), Color(0xFF8B5CF6)]),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: IconButton(
+                      onPressed: _agregarServicio,
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      tooltip: 'Agregar servicio',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Presiona Enter o el botón + para agregar',
+                style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 20),
+        
+        // Contador de servicios
         Row(
           children: [
-            Expanded(
-              child: TextFormField(
-                controller: _servicioController,
-                decoration: _inputDecoration('Nuevo servicio...'),
-                onFieldSubmitted: (_) => _agregarServicio(),
-              ),
-            ),
+            Icon(Icons.checklist, color: Colors.white.withOpacity(0.6), size: 18),
             const SizedBox(width: 8),
-            IconButton(
-              onPressed: _agregarServicio,
-              icon: const Icon(Icons.add_circle, color: Color(0xFF00D9FF)),
+            Text(
+              '${_servicios.length} servicio${_servicios.length != 1 ? 's' : ''} agregado${_servicios.length != 1 ? 's' : ''}',
+              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
             ),
           ],
         ),
-        
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         
         // Lista de servicios
         if (_servicios.isEmpty)
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white10),
+              color: const Color(0xFF12121A),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.05)),
             ),
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.playlist_add, size: 40, color: Colors.white.withOpacity(0.3)),
-                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.playlist_add, size: 40, color: Colors.white.withOpacity(0.3)),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     'Sin servicios agregados',
-                    style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                    style: TextStyle(color: Colors.white.withOpacity(0.6), fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Agrega servicios arriba o usa las sugerencias',
+                    style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12),
                   ),
                 ],
               ),
@@ -2080,51 +2255,125 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
           )
         else
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 10,
+            runSpacing: 10,
             children: _servicios.asMap().entries.map((entry) {
-              return Chip(
-                backgroundColor: const Color(0xFF1A1A2E),
-                side: const BorderSide(color: Color(0xFF00D9FF)),
-                label: Text(
-                  entry.value,
-                  style: const TextStyle(color: Colors.white),
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [const Color(0xFF1A1A2E), const Color(0xFF12121A)],
+                  ),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(
+                    color: const Color(0xFF00D9FF).withOpacity(0.4),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00D9FF).withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                deleteIcon: const Icon(Icons.close, size: 16),
-                deleteIconColor: Colors.red,
-                onDeleted: () => setState(() => _servicios.removeAt(entry.key)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF00D9FF),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      entry.value,
+                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => setState(() => _servicios.removeAt(entry.key)),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, size: 14, color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
               );
             }).toList(),
           ),
         
-        const SizedBox(height: 24),
+        const SizedBox(height: 28),
         
-        // Sugerencias según módulo
-        const Text('💡 Sugerencias', style: TextStyle(color: Colors.white70, fontSize: 12)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _getSugerenciasModulo().map((s) {
-            return GestureDetector(
-              onTap: () {
-                if (!_servicios.contains(s)) {
-                  setState(() => _servicios.add(s));
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  '+ $s',
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
-                ),
+        // Sugerencias según módulo - MEJORADO
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF12121A),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, color: Colors.amber.withOpacity(0.8), size: 18),
+                  const SizedBox(width: 8),
+                  const Text('Sugerencias rápidas', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+                ],
               ),
-            );
-          }).toList(),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _getSugerenciasModulo().map((s) {
+                  final yaExiste = _servicios.contains(s);
+                  return GestureDetector(
+                    onTap: yaExiste ? null : () {
+                      setState(() => _servicios.add(s));
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: yaExiste ? Colors.green.withOpacity(0.2) : Colors.white.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: yaExiste ? Colors.green.withOpacity(0.4) : Colors.white.withOpacity(0.15),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            yaExiste ? Icons.check : Icons.add,
+                            size: 14,
+                            color: yaExiste ? Colors.green : Colors.white.withOpacity(0.6),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            s,
+                            style: TextStyle(
+                              color: yaExiste ? Colors.green : Colors.white.withOpacity(0.7),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -2157,272 +2406,458 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
     }
   }
 
-  // Step 4: Extras Web - Redes sociales, ubicación, promociones
+  // Step 4: Extras Web - MEJORADO con iconos y mejor diseño
   Widget _buildStepExtras() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Sección Redes Sociales
-        const Text('🌐 Redes Sociales', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 4),
-        Text('Opcional: aparecerán en tu tarjeta web', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
-        const SizedBox(height: 12),
+        _buildSectionHeader('Redes Sociales', Icons.share, 'Enlaces a tus perfiles (opcional)'),
+        const SizedBox(height: 16),
         
-        TextFormField(
-          initialValue: _facebook,
-          decoration: _inputDecoration('Facebook (URL)'),
-          keyboardType: TextInputType.url,
-          onChanged: (v) => _facebook = v,
-        ),
+        // Grid de redes sociales
+        _buildSocialInput('Facebook', Icons.facebook, _facebook, (v) => _facebook = v, const Color(0xFF1877F2)),
         const SizedBox(height: 12),
-        
-        TextFormField(
-          initialValue: _instagram,
-          decoration: _inputDecoration('Instagram (URL)'),
-          keyboardType: TextInputType.url,
-          onChanged: (v) => _instagram = v,
-        ),
+        _buildSocialInput('Instagram', Icons.camera_alt, _instagram, (v) => _instagram = v, const Color(0xFFE4405F)),
         const SizedBox(height: 12),
-        
-        TextFormField(
-          initialValue: _tiktok,
-          decoration: _inputDecoration('TikTok (URL)'),
-          keyboardType: TextInputType.url,
-          onChanged: (v) => _tiktok = v,
-        ),
+        _buildSocialInput('TikTok', Icons.music_note, _tiktok, (v) => _tiktok = v, const Color(0xFF000000)),
         const SizedBox(height: 12),
         
         Row(
           children: [
-            Expanded(
-              child: TextFormField(
-                initialValue: _youtube,
-                decoration: _inputDecoration('YouTube'),
-                keyboardType: TextInputType.url,
-                onChanged: (v) => _youtube = v,
-              ),
-            ),
+            Expanded(child: _buildSocialInput('YouTube', Icons.play_circle_fill, _youtube, (v) => _youtube = v, const Color(0xFFFF0000))),
             const SizedBox(width: 12),
-            Expanded(
-              child: TextFormField(
-                initialValue: _sitioWeb,
-                decoration: _inputDecoration('Sitio Web'),
-                keyboardType: TextInputType.url,
-                onChanged: (v) => _sitioWeb = v,
-              ),
-            ),
+            Expanded(child: _buildSocialInput('Sitio Web', Icons.language, _sitioWeb, (v) => _sitioWeb = v, const Color(0xFF00D9FF))),
           ],
         ),
         
-        const SizedBox(height: 24),
-        const Divider(color: Colors.white24),
-        const SizedBox(height: 16),
+        const SizedBox(height: 28),
         
         // Sección Ubicación
-        const Text('📍 Ubicación', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 4),
-        Text('Coordenadas para botones de Google Maps y Waze', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
-        const SizedBox(height: 12),
-        
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                initialValue: _latitud?.toString() ?? '',
-                decoration: _inputDecoration('Latitud'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                onChanged: (v) => _latitud = double.tryParse(v),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextFormField(
-                initialValue: _longitud?.toString() ?? '',
-                decoration: _inputDecoration('Longitud'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                onChanged: (v) => _longitud = double.tryParse(v),
-              ),
-            ),
-          ],
-        ),
-        
-        const SizedBox(height: 24),
-        const Divider(color: Colors.white24),
+        _buildSectionHeader('Ubicación GPS', Icons.location_on, 'Para botones de Maps y Waze'),
         const SizedBox(height: 16),
         
-        // Sección Promoción
-        const Text('🔥 Promoción', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF12121A),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      initialValue: _latitud?.toString() ?? '',
+                      decoration: _inputDecoration('Latitud', icon: Icons.north),
+                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      onChanged: (v) => _latitud = double.tryParse(v),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      initialValue: _longitud?.toString() ?? '',
+                      decoration: _inputDecoration('Longitud', icon: Icons.east),
+                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      onChanged: (v) => _longitud = double.tryParse(v),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '💡 Tip: Busca tu negocio en Google Maps, haz clic derecho y copia las coordenadas',
+                style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+              ),
+            ],
+          ),
+        ),
         
-        SwitchListTile(
-          title: const Text('Mostrar promoción activa', style: TextStyle(color: Colors.white)),
-          subtitle: Text('Banner destacado en tu tarjeta', style: TextStyle(color: Colors.white.withOpacity(0.6))),
+        const SizedBox(height: 28),
+        
+        // Sección Promoción
+        _buildSectionHeader('Promoción Especial', Icons.local_offer, 'Destaca ofertas en tu tarjeta'),
+        const SizedBox(height: 16),
+        
+        _buildToggleCard(
+          title: 'Mostrar banner de promoción',
+          subtitle: 'Aparecerá destacado en tu tarjeta web',
           value: _promocionActiva,
-          activeColor: const Color(0xFF00D9FF),
+          icon: Icons.campaign,
+          color: Colors.orange,
           onChanged: (v) => setState(() => _promocionActiva = v),
-          contentPadding: EdgeInsets.zero,
         ),
         
         if (_promocionActiva) ...[
-          const SizedBox(height: 8),
-          TextFormField(
-            initialValue: _promocionTexto,
-            decoration: _inputDecoration('Texto de promoción'),
-            onChanged: (v) => _promocionTexto = v,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            initialValue: _promocionDescuento?.toString() ?? '',
-            decoration: _inputDecoration('Descuento % (ej: 20)'),
-            keyboardType: TextInputType.number,
-            onChanged: (v) => _promocionDescuento = int.tryParse(v),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.orange.withOpacity(0.1), Colors.red.withOpacity(0.1)],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                TextFormField(
+                  initialValue: _promocionTexto,
+                  decoration: _inputDecoration('Texto de la promoción', icon: Icons.text_fields),
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  onChanged: (v) => _promocionTexto = v,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  initialValue: _promocionDescuento?.toString() ?? '',
+                  decoration: _inputDecoration('Descuento %', icon: Icons.percent),
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => _promocionDescuento = int.tryParse(v),
+                ),
+              ],
+            ),
           ),
         ],
         
-        const SizedBox(height: 24),
-        const Divider(color: Colors.white24),
-        const SizedBox(height: 16),
+        const SizedBox(height: 28),
         
         // Sección Agendar Cita
-        const Text('📅 Agendar Citas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 12),
+        _buildSectionHeader('Agendar Citas', Icons.calendar_today, 'Permite a clientes solicitar citas'),
+        const SizedBox(height: 16),
         
-        SwitchListTile(
-          title: const Text('Permitir agendar citas', style: TextStyle(color: Colors.white)),
-          subtitle: Text('Botón para que clientes soliciten cita por WhatsApp', style: TextStyle(color: Colors.white.withOpacity(0.6))),
+        _buildToggleCard(
+          title: 'Botón de agendar cita',
+          subtitle: 'Los clientes podrán solicitar cita por WhatsApp',
           value: _permiteAgendar,
-          activeColor: const Color(0xFF00D9FF),
+          icon: Icons.event_available,
+          color: const Color(0xFF10B981),
           onChanged: (v) => setState(() => _permiteAgendar = v),
-          contentPadding: EdgeInsets.zero,
         ),
       ],
     );
   }
+  
+  // Input para redes sociales con color de marca
+  Widget _buildSocialInput(String label, IconData icon, String value, Function(String) onChanged, Color brandColor) {
+    return TextFormField(
+      initialValue: value,
+      decoration: InputDecoration(
+        hintText: label,
+        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+        filled: true,
+        fillColor: const Color(0xFF12121A),
+        prefixIcon: Padding(
+          padding: const EdgeInsets.only(left: 12, right: 8),
+          child: Icon(icon, size: 20, color: brandColor.withOpacity(0.8)),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 40),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: brandColor, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+      style: const TextStyle(color: Colors.white, fontSize: 15),
+      keyboardType: TextInputType.url,
+      onChanged: onChanged,
+    );
+  }
+  
+  // Card con toggle switch
+  Widget _buildToggleCard({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required IconData icon,
+    required Color color,
+    required Function(bool) onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: value ? color.withOpacity(0.1) : const Color(0xFF12121A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: value ? color.withOpacity(0.4) : Colors.white.withOpacity(0.05)),
+      ),
+      child: SwitchListTile(
+        title: Row(
+          children: [
+            Icon(icon, color: value ? color : Colors.white54, size: 20),
+            const SizedBox(width: 12),
+            Text(title, style: TextStyle(color: Colors.white, fontWeight: value ? FontWeight.bold : FontWeight.normal)),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(left: 32),
+          child: Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+        ),
+        value: value,
+        activeColor: color,
+        onChanged: onChanged,
+      ),
+    );
+  }
 
-  // Step 5: Diseño
+  // Step 5: Diseño - MEJORADO con selectores visuales
   Widget _buildStepDiseno() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Color primario
-        const Text('Color Principal', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _colores.map((c) {
-            final isSelected = c['color'] == _colorPrimario;
-            return GestureDetector(
-              onTap: () => setState(() => _colorPrimario = c['color']),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Color(int.parse(c['color'].replaceFirst('#', '0xFF'))),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isSelected ? Colors.white : Colors.transparent,
-                    width: 3,
-                  ),
-                  boxShadow: isSelected
-                      ? [BoxShadow(color: Color(int.parse(c['color'].replaceFirst('#', '0xFF'))).withOpacity(0.5), blurRadius: 8)]
-                      : null,
-                ),
-                child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+        // Header
+        _buildSectionHeader('Personaliza tu Tarjeta', Icons.palette, 'Elige los colores y estilo'),
+        const SizedBox(height: 20),
+        
+        // Color primario con preview
+        Row(
+          children: [
+            const Text('🎨 Color Principal', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 12),
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Color(int.parse(_colorPrimario.replaceFirst('#', '0xFF'))),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.white54),
               ),
-            );
-          }).toList(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildColorSelector(
+          selectedColor: _colorPrimario,
+          onColorSelected: (color) => setState(() => _colorPrimario = color),
         ),
         
-        const SizedBox(height: 24),
+        const SizedBox(height: 28),
         
         // Color secundario
-        const Text('Color Secundario', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _colores.map((c) {
-            final isSelected = c['color'] == _colorSecundario;
-            return GestureDetector(
-              onTap: () => setState(() => _colorSecundario = c['color']),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Color(int.parse(c['color'].replaceFirst('#', '0xFF'))),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isSelected ? Colors.white : Colors.transparent,
-                    width: 3,
-                  ),
-                ),
-                child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+        Row(
+          children: [
+            const Text('✨ Color Secundario', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 12),
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Color(int.parse(_colorSecundario.replaceFirst('#', '0xFF'))),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.white54),
               ),
-            );
-          }).toList(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildColorSelector(
+          selectedColor: _colorSecundario,
+          onColorSelected: (color) => setState(() => _colorSecundario = color),
         ),
         
-        const SizedBox(height: 24),
+        const SizedBox(height: 28),
         
-        // Template
-        const Text('Estilo de Diseño', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _templatesDisponibles().map((t) {
-            final nombre = (t['nombre'] ?? '').toString().toLowerCase();
-            if (nombre.isEmpty) return const SizedBox.shrink();
-            final isSelected = nombre == _template.toLowerCase();
-            final esPremium = t['es_premium'] == true;
-            return GestureDetector(
-              onTap: () => setState(() => _template = nombre),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF00D9FF).withOpacity(0.2)
-                      : const Color(0xFF1A1A2E),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected ? const Color(0xFF00D9FF) : Colors.white24,
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+        // Preview de colores combinados
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(int.parse(_colorPrimario.replaceFirst('#', '0xFF'))).withOpacity(0.3),
+                Color(int.parse(_colorSecundario.replaceFirst('#', '0xFF'))).withOpacity(0.3),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.visibility, color: Colors.white.withOpacity(0.7), size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      nombre.toUpperCase(),
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white70,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 12,
-                      ),
-                    ),
-                    if (esPremium) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.amber,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'PRO',
-                          style: TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
+                    const Text('Vista previa de colores', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text('Así se verá tu combinación', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11)),
                   ],
                 ),
               ),
-            );
-          }).toList(),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 28),
+        
+        // Template
+        const Text('📐 Estilo de Diseño', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 90,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: _templatesDisponibles().map((t) {
+              final nombre = (t['nombre'] ?? '').toString().toLowerCase();
+              if (nombre.isEmpty) return const SizedBox.shrink();
+              final isSelected = nombre == _template.toLowerCase();
+              final esPremium = t['es_premium'] == true;
+              return GestureDetector(
+                onTap: () => setState(() => _template = nombre),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(right: 12),
+                  width: 100,
+                  decoration: BoxDecoration(
+                    gradient: isSelected 
+                        ? LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [const Color(0xFF00D9FF).withOpacity(0.3), const Color(0xFF8B5CF6).withOpacity(0.3)],
+                          )
+                        : null,
+                    color: isSelected ? null : const Color(0xFF12121A),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFF00D9FF) : Colors.white.withOpacity(0.1),
+                      width: isSelected ? 2 : 1,
+                    ),
+                    boxShadow: isSelected 
+                        ? [BoxShadow(color: const Color(0xFF00D9FF).withOpacity(0.2), blurRadius: 12)]
+                        : null,
+                  ),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _getTemplateIcon(nombre),
+                              color: isSelected ? const Color(0xFF00D9FF) : Colors.white54,
+                              size: 28,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              nombre.toUpperCase(),
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : Colors.white60,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (esPremium)
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFB8860B)]),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'PRO',
+                              style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      if (isSelected)
+                        Positioned(
+                          bottom: 6,
+                          right: 6,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF10B981),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.check, color: Colors.white, size: 12),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
+  }
+  
+  // Selector de colores mejorado
+  Widget _buildColorSelector({
+    required String selectedColor,
+    required Function(String) onColorSelected,
+  }) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: _colores.map((c) {
+        final isSelected = c['color'] == selectedColor;
+        final color = Color(int.parse(c['color'].replaceFirst('#', '0xFF')));
+        
+        return GestureDetector(
+          onTap: () => onColorSelected(c['color']),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: isSelected ? 52 : 44,
+            height: isSelected ? 52 : 44,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(isSelected ? 14 : 10),
+              border: Border.all(
+                color: isSelected ? Colors.white : Colors.transparent,
+                width: 3,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(color: color.withOpacity(0.6), blurRadius: 12, spreadRadius: 2),
+                      BoxShadow(color: color.withOpacity(0.3), blurRadius: 20, spreadRadius: 4),
+                    ]
+                  : [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
+            ),
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 150),
+                child: isSelected 
+                    ? const Icon(Icons.check, color: Colors.white, size: 24, key: ValueKey('check'))
+                    : const SizedBox.shrink(key: ValueKey('empty')),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+  
+  // Icono para cada template
+  IconData _getTemplateIcon(String template) {
+    switch (template.toLowerCase()) {
+      case 'profesional': return Icons.business_center;
+      case 'moderno': return Icons.auto_awesome;
+      case 'minimalista': return Icons.crop_square;
+      case 'clasico': return Icons.style;
+      case 'premium': return Icons.diamond;
+      case 'corporativo': return Icons.account_balance;
+      default: return Icons.design_services;
+    }
   }
 
   // Step 5: Preview
@@ -2545,25 +2980,38 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
     );
   }
 
-  InputDecoration _inputDecoration(String hint) {
+  InputDecoration _inputDecoration(String hint, {IconData? icon, String? prefixText}) {
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
       filled: true,
-      fillColor: const Color(0xFF1A1A2E),
+      fillColor: const Color(0xFF12121A),
+      prefixIcon: icon != null 
+          ? Padding(
+              padding: const EdgeInsets.only(left: 12, right: 8),
+              child: Icon(icon, size: 20, color: const Color(0xFF00D9FF).withOpacity(0.7)),
+            ) 
+          : null,
+      prefixIconConstraints: const BoxConstraints(minWidth: 40),
+      prefixText: prefixText,
+      prefixStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF00D9FF)),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFF00D9FF), width: 2),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFEF4444)),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 

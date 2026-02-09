@@ -1466,72 +1466,588 @@ class _CrearTarjetaServicioScreenState extends State<_CrearTarjetaServicioScreen
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // LAYOUT PARA MÓVILES - Con preview flotante
+  // LAYOUT MÓVIL TIPO ZAZZLE - Diseño visual profesional
   // ═══════════════════════════════════════════════════════════════════════════════
   Widget _buildMobileLayout(bool esEdicion) {
-    return Stack(
+    return Column(
       children: [
-        // Contenido principal con Stepper
-        Form(
-          key: _formKey,
-          child: Stepper(
-            currentStep: _currentStep,
-            onStepContinue: _continuar,
-            onStepCancel: _retroceder,
-            controlsBuilder: (context, details) => _buildControls(details),
-            steps: [
-              Step(
-                title: const Text('Negocio y Módulo', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('Selecciona el negocio y tipo de servicio', style: TextStyle(color: Colors.white54)),
-                isActive: _currentStep >= 0,
-                state: _currentStep > 0 ? StepState.complete : StepState.indexed,
-                content: _buildStepNegocio(),
-              ),
-              Step(
-                title: const Text('Información', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('Datos de contacto', style: TextStyle(color: Colors.white54)),
-                isActive: _currentStep >= 1,
-                state: _currentStep > 1 ? StepState.complete : StepState.indexed,
-                content: _buildStepInfo(),
-              ),
-              Step(
-                title: const Text('Servicios', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('Qué servicios ofreces', style: TextStyle(color: Colors.white54)),
-                isActive: _currentStep >= 2,
-                state: _currentStep > 2 ? StepState.complete : StepState.indexed,
-                content: _buildStepServicios(),
-              ),
-              Step(
-                title: const Text('Extras Web', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('Redes sociales, ubicación y promociones', style: TextStyle(color: Colors.white54)),
-                isActive: _currentStep >= 3,
-                state: _currentStep > 3 ? StepState.complete : StepState.indexed,
-                content: _buildStepExtras(),
-              ),
-              Step(
-                title: const Text('Diseño', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('Colores y estilo', style: TextStyle(color: Colors.white54)),
-                isActive: _currentStep >= 4,
-                state: _currentStep > 4 ? StepState.complete : StepState.indexed,
-                content: _buildStepDiseno(),
-              ),
-              Step(
-                title: const Text('Vista Previa', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('Revisa y confirma', style: TextStyle(color: Colors.white54)),
-                isActive: _currentStep >= 5,
-                content: _buildStepPreview(),
+        // ═══ ÁREA SUPERIOR: Vista de tarjeta + herramientas ═══
+        Expanded(
+          flex: 50,
+          child: Row(
+            children: [
+              // Panel de herramientas lateral izquierdo
+              _buildToolsPanel(),
+              // Vista central de la tarjeta
+              Expanded(
+                child: Container(
+                  color: const Color(0xFF16213E),
+                  child: Column(
+                    children: [
+                      // Header con indicador de paso
+                      _buildEditorHeader(),
+                      // Tarjeta principal grande
+                      Expanded(
+                        child: Center(
+                          child: _buildLargeCardPreview(),
+                        ),
+                      ),
+                      // Miniaturas anverso/reverso
+                      _buildThumbnailsRow(),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
         ),
-        // Mini preview flotante (solo en pasos 0-4)
-        if (_currentStep < 5)
-          Positioned(
-            bottom: 16,
-            right: 16,
-            child: _buildFloatingMiniPreview(),
-          ),
+        // ═══ ÁREA INFERIOR: Panel de edición deslizable ═══
+        Expanded(
+          flex: 50,
+          child: _buildEditPanel(esEdicion),
+        ),
       ],
+    );
+  }
+
+  // ═══ PANEL DE HERRAMIENTAS LATERAL (tipo Zazzle) ═══
+  Widget _buildToolsPanel() {
+    final tools = [
+      {'icon': Icons.edit_outlined, 'label': 'Editar', 'step': 0},
+      {'icon': Icons.text_fields, 'label': 'Info', 'step': 1},
+      {'icon': Icons.list_alt, 'label': 'Servicios', 'step': 2},
+      {'icon': Icons.link, 'label': 'Extras', 'step': 3},
+      {'icon': Icons.palette_outlined, 'label': 'Diseño', 'step': 4},
+      {'icon': Icons.preview_outlined, 'label': 'Preview', 'step': 5},
+    ];
+
+    return Container(
+      width: 70,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        border: Border(
+          right: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          ...tools.map((tool) => _buildToolButton(
+            icon: tool['icon'] as IconData,
+            label: tool['label'] as String,
+            step: tool['step'] as int,
+          )),
+          const Spacer(),
+          // Botón guardar rápido
+          Container(
+            margin: const EdgeInsets.all(8),
+            child: IconButton(
+              onPressed: _isLoading ? null : _guardarTarjeta,
+              icon: _isLoading 
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.save_outlined),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.all(12),
+              ),
+              tooltip: 'Guardar',
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolButton({required IconData icon, required String label, required int step}) {
+    final isActive = _currentStep == step;
+    final isComplete = step < _currentStep;
+
+    return Tooltip(
+      message: label,
+      child: GestureDetector(
+        onTap: () => setState(() => _currentStep = step),
+        child: Container(
+          width: 56,
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 7),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive 
+                ? const Color(0xFF00D9FF).withOpacity(0.2)
+                : isComplete 
+                    ? const Color(0xFF10B981).withOpacity(0.1)
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isActive 
+                  ? const Color(0xFF00D9FF)
+                  : isComplete 
+                      ? const Color(0xFF10B981).withOpacity(0.5)
+                      : Colors.transparent,
+              width: isActive ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isComplete && !isActive ? Icons.check_circle : icon,
+                color: isActive 
+                    ? const Color(0xFF00D9FF)
+                    : isComplete 
+                        ? const Color(0xFF10B981)
+                        : Colors.white54,
+                size: 22,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive 
+                      ? const Color(0xFF00D9FF)
+                      : isComplete 
+                          ? const Color(0xFF10B981)
+                          : Colors.white54,
+                  fontSize: 9,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══ HEADER DEL EDITOR ═══
+  Widget _buildEditorHeader() {
+    final stepNames = ['Negocio', 'Información', 'Servicios', 'Extras', 'Diseño', 'Preview'];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF1A1A2E),
+            const Color(0xFF16213E).withOpacity(0.8),
+          ],
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF00D9FF), Color(0xFF8B5CF6)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${_currentStep + 1}/6',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              stepNames[_currentStep],
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          // Tooltip de ayuda
+          IconButton(
+            onPressed: _showHelpTooltip,
+            icon: Icon(Icons.help_outline, color: Colors.white.withOpacity(0.6), size: 20),
+            tooltip: 'Ayuda',
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHelpTooltip() {
+    final helpTexts = [
+      'Selecciona el negocio y tipo de servicio para tu tarjeta QR',
+      'Agrega los datos de contacto que verán tus clientes',
+      'Lista los servicios que ofreces',
+      'Añade redes sociales, ubicación y promociones',
+      'Personaliza los colores y el estilo visual',
+      'Revisa que todo esté correcto antes de guardar',
+    ];
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(helpTexts[_currentStep]),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  // ═══ VISTA GRANDE DE TARJETA CON FLIP 3D ═══
+  Widget _buildLargeCardPreview() {
+    final qrPreview = _buildQrPreviewData();
+    
+    return GestureDetector(
+      onTap: () => setState(() => _showBackPreview = !_showBackPreview),
+      onHorizontalDragEnd: (details) {
+        if (details.primaryVelocity != null) {
+          if (details.primaryVelocity! < -100 || details.primaryVelocity! > 100) {
+            setState(() => _showBackPreview = !_showBackPreview);
+          }
+        }
+      },
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: _showBackPreview ? 180 : 0),
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOutBack,
+        builder: (context, value, child) {
+          final showFront = value < 90;
+          final rotationAngle = showFront ? value : (180 - value);
+          
+          return Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001)
+              ..rotateY(rotationAngle * 3.1416 / 180),
+            child: Container(
+              margin: const EdgeInsets.all(20),
+              constraints: const BoxConstraints(maxWidth: 320, maxHeight: 200),
+              child: AspectRatio(
+                aspectRatio: kTarjetaPrintAspectRatio,
+                child: Stack(
+                  children: [
+                    // Sombra detrás
+                    Positioned.fill(
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 8, left: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.4),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Tarjeta
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: showFront
+                          ? _TarjetaPreviewFrenteLive(
+                              nombreNegocio: _nombreNegocio,
+                              colorPrimario: _colorPrimario,
+                            )
+                          : Transform(
+                              alignment: Alignment.center,
+                              transform: Matrix4.identity()..rotateY(3.1416),
+                              child: _TarjetaPreviewReversoLive(
+                                nombreNegocio: _nombreNegocio,
+                                slogan: _slogan,
+                                telefono: _telefonoPrincipal,
+                                email: _email,
+                                ciudad: _ciudad,
+                                qrData: qrPreview,
+                                colorPrimario: _colorPrimario,
+                              ),
+                            ),
+                    ),
+                    // Indicador de swipe
+                    Positioned(
+                      bottom: 8,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.swipe, size: 14, color: Colors.white.withOpacity(0.8)),
+                              const SizedBox(width: 6),
+                              Text(
+                                showFront ? 'Ver reverso' : 'Ver anverso',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ═══ MINIATURAS ANVERSO/REVERSO ═══
+  Widget _buildThumbnailsRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildMiniThumbnailNew('Anverso', false),
+          const SizedBox(width: 16),
+          _buildMiniThumbnailNew('Reverso', true),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniThumbnailNew(String label, bool isBack) {
+    final isSelected = _showBackPreview == isBack;
+    final primaryColor = _colorPrimario.isNotEmpty 
+        ? Color(int.parse(_colorPrimario.replaceFirst('#', '0xFF'))) 
+        : const Color(0xFFD4AF37);
+    
+    return GestureDetector(
+      onTap: () => setState(() => _showBackPreview = isBack),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        child: Column(
+          children: [
+            Container(
+              width: 70,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: isBack 
+                    ? const LinearGradient(colors: [Color(0xFF1A1A1A), Color(0xFF2D2D2D)])
+                    : LinearGradient(colors: [primaryColor, primaryColor.withOpacity(0.8)]),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isSelected ? const Color(0xFF00D9FF) : Colors.white24,
+                  width: isSelected ? 2 : 1,
+                ),
+                boxShadow: isSelected ? [
+                  BoxShadow(
+                    color: const Color(0xFF00D9FF).withOpacity(0.4),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  ),
+                ] : null,
+              ),
+              child: Center(
+                child: isBack 
+                    ? const Icon(Icons.qr_code_2, color: Colors.white60, size: 22)
+                    : Text(
+                        _getIniciales(),
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? const Color(0xFF00D9FF) : Colors.white54,
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══ PANEL DE EDICIÓN INFERIOR ═══
+  Widget _buildEditPanel(bool esEdicion) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Handle para deslizar
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Header del panel
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(
+                  _getStepIcon(_currentStep),
+                  color: const Color(0xFF00D9FF),
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  _getStepTitle(_currentStep),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const Spacer(),
+                // Navegación rápida
+                if (_currentStep > 0)
+                  IconButton(
+                    onPressed: _retroceder,
+                    icon: const Icon(Icons.arrow_back_ios, size: 18),
+                    color: Colors.white54,
+                    tooltip: 'Anterior',
+                  ),
+                if (_currentStep < 5)
+                  IconButton(
+                    onPressed: _continuar,
+                    icon: const Icon(Icons.arrow_forward_ios, size: 18),
+                    color: const Color(0xFF00D9FF),
+                    tooltip: 'Siguiente',
+                  ),
+              ],
+            ),
+          ),
+          // Contenido del formulario
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Form(
+                key: _formKey,
+                child: _buildCurrentStepContent(),
+              ),
+            ),
+          ),
+          // Botón de acción principal
+          _buildBottomActionBar(),
+        ],
+      ),
+    );
+  }
+
+  IconData _getStepIcon(int step) {
+    switch (step) {
+      case 0: return Icons.business;
+      case 1: return Icons.contact_page;
+      case 2: return Icons.list_alt;
+      case 3: return Icons.language;
+      case 4: return Icons.palette;
+      case 5: return Icons.preview;
+      default: return Icons.edit;
+    }
+  }
+
+  String _getStepTitle(int step) {
+    switch (step) {
+      case 0: return 'Negocio y Módulo';
+      case 1: return 'Información de Contacto';
+      case 2: return 'Servicios Ofrecidos';
+      case 3: return 'Extras Web';
+      case 4: return 'Diseño y Colores';
+      case 5: return 'Vista Previa Final';
+      default: return 'Editar';
+    }
+  }
+
+  Widget _buildCurrentStepContent() {
+    switch (_currentStep) {
+      case 0: return _buildStepNegocio();
+      case 1: return _buildStepInfo();
+      case 2: return _buildStepServicios();
+      case 3: return _buildStepExtras();
+      case 4: return _buildStepDiseno();
+      case 5: return _buildStepPreview();
+      default: return const SizedBox();
+    }
+  }
+
+  Widget _buildBottomActionBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            // Indicador de progreso
+            Expanded(
+              child: Row(
+                children: List.generate(6, (index) {
+                  final isComplete = index < _currentStep;
+                  final isCurrent = index == _currentStep;
+                  return Expanded(
+                    child: Container(
+                      height: 4,
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        color: isComplete 
+                            ? const Color(0xFF10B981)
+                            : isCurrent 
+                                ? const Color(0xFF00D9FF)
+                                : Colors.white12,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Botón principal
+            ElevatedButton.icon(
+              onPressed: _isLoading ? null : (_currentStep < 5 ? _continuar : _guardarTarjeta),
+              icon: _isLoading 
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Icon(_currentStep < 5 ? Icons.arrow_forward : Icons.check_circle, size: 18),
+              label: Text(_currentStep < 5 ? 'Siguiente' : 'Guardar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _currentStep < 5 ? const Color(0xFF00D9FF) : const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
